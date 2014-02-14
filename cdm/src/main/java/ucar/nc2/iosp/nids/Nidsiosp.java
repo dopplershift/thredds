@@ -77,8 +77,9 @@ public class Nidsiosp extends AbstractIOServiceProvider {
    * @return the valid of file checking
    */
   public boolean isValidFile(ucar.unidata.io.RandomAccessFile raf) {
-    Nidsheader localHeader = new Nidsheader();
-    return (localHeader.isValidFile(raf));
+      return false;
+//    Nidsheader localHeader = new Nidsheader();
+//    return (localHeader.isValidFile(raf));
   }
 
   public String getFileTypeId() {
