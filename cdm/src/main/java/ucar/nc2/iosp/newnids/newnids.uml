@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Diagram>
+  <ID>JAVA</ID>
+  <OriginalElement>ucar.nc2.iosp.newnids</OriginalElement>
+  <nodes>
+    <node x="419.5384615384615" y="20.0">ucar.nc2.iosp.newnids.Packet</node>
+    <node x="342.0" y="665.0">ucar.nc2.iosp.newnids.PacketFactory</node>
+    <node x="423.0" y="167.0">ucar.nc2.iosp.newnids.RadialDataPacket</node>
+    <node x="578.0" y="167.0">ucar.nc2.iosp.newnids.RasterDataPacket</node>
+    <node x="0.0" y="665.0">ucar.nc2.iosp.newnids.ProductTypeFactory</node>
+    <node x="1292.0" y="137.0">ucar.nc2.iosp.newnids.StormTrackProduct</node>
+    <node x="905.0" y="146.5">ucar.nc2.iosp.newnids.ProductDescription</node>
+    <node x="222.5" y="492.0">ucar.nc2.iosp.newnids.NidsIosp2</node>
+    <node x="1101.0" y="137.0">ucar.nc2.iosp.newnids.BaseReflectivityProduct</node>
+    <node x="187.0" y="274.0">ucar.nc2.iosp.newnids.NidsFile</node>
+    <node x="254.0" y="157.0">ucar.nc2.iosp.newnids.SymbologyBlock</node>
+    <node x="736.0" y="157.0">ucar.nc2.iosp.newnids.GraphicBlock</node>
+    <node x="1071.7884615384614" y="0.0">ucar.nc2.iosp.newnids.ProductType</node>
+    <node x="119.0" y="157.0">ucar.nc2.iosp.newnids.TextBlock</node>
+    <node x="0.0" y="167.0">ucar.nc2.iosp.newnids.NidsHeader</node>
+  </nodes>
+  <notes />
+  <edges>
+    <edge source="ucar.nc2.iosp.newnids.ProductDescription" target="ucar.nc2.iosp.newnids.ProductType">
+      <point x="0.0" y="0.0" />
+      <point x="0.0" y="0.0" />
+    </edge>
+    <edge source="ucar.nc2.iosp.newnids.NidsIosp2" target="ucar.nc2.iosp.newnids.NidsFile">
+      <point x="0.0" y="0.0" />
+      <point x="0.0" y="0.0" />
+    </edge>
+    <edge source="ucar.nc2.iosp.newnids.GraphicBlock" target="ucar.nc2.iosp.newnids.Packet">
+      <point x="0.0" y="0.0" />
+      <point x="0.0" y="0.0" />
+    </edge>
+    <edge source="ucar.nc2.iosp.newnids.StormTrackProduct" target="ucar.nc2.iosp.newnids.ProductType">
+      <point x="0.0" y="-43.5" />
+      <point x="1377.0" y="117.0" />
+      <point x="1213.4551282051282" y="117.0" />
+      <point x="56.66666666666674" y="43.5" />
+    </edge>
+    <edge source="ucar.nc2.iosp.newnids.RadialDataPacket" target="ucar.nc2.iosp.newnids.Packet">
+      <point x="0.0" y="-13.5" />
+      <point x="490.5" y="117.0" />
+      <point x="530.0384615384614" y="117.0" />
+      <point x="-9.0" y="13.5" />
+    </edge>
+    <edge source="ucar.nc2.iosp.newnids.NidsFile" target="ucar.nc2.iosp.newnids.SymbologyBlock">
+      <point x="0.0" y="0.0" />
+      <point x="0.0" y="0.0" />
+    </edge>
+    <edge source="ucar.nc2.iosp.newnids.NidsFile" target="ucar.nc2.iosp.newnids.GraphicBlock">
+      <point x="0.0" y="0.0" />
+      <point x="0.0" y="0.0" />
+    </edge>
+    <edge source="ucar.nc2.iosp.newnids.BaseReflectivityProduct" target="ucar.nc2.iosp.newnids.ProductType">
+      <point x="0.0" y="-43.5" />
+      <point x="1186.5" y="117.0" />
+      <point x="1156.7884615384614" y="117.0" />
+      <point x="0.0" y="43.5" />
+    </edge>
+    <edge source="ucar.nc2.iosp.newnids.NidsFile" target="ucar.nc2.iosp.newnids.ProductDescription">
+      <point x="0.0" y="0.0" />
+      <point x="0.0" y="0.0" />
+    </edge>
+    <edge source="ucar.nc2.iosp.newnids.SymbologyBlock" target="ucar.nc2.iosp.newnids.Packet">
+      <point x="0.0" y="0.0" />
+      <point x="0.0" y="0.0" />
+    </edge>
+    <edge source="ucar.nc2.iosp.newnids.RasterDataPacket" target="ucar.nc2.iosp.newnids.Packet">
+      <point x="0.0" y="-13.5" />
+      <point x="647.0" y="117.0" />
+      <point x="548.0384615384614" y="117.0" />
+      <point x="9.0" y="13.5" />
+    </edge>
+    <edge source="ucar.nc2.iosp.newnids.NidsFile" target="ucar.nc2.iosp.newnids.TextBlock">
+      <point x="0.0" y="0.0" />
+      <point x="0.0" y="0.0" />
+    </edge>
+    <edge source="ucar.nc2.iosp.newnids.NidsFile" target="ucar.nc2.iosp.newnids.NidsHeader">
+      <point x="0.0" y="0.0" />
+      <point x="0.0" y="0.0" />
+    </edge>
+  </edges>
+  <settings layout="Hierarchic Group" zoom="0.8967611336032388" x="731.0" y="356.0" />
+  <SelectedNodes>
+    <node>ucar.nc2.iosp.newnids.Packet</node>
+  </SelectedNodes>
+  <Categories>
+    <Category>Fields</Category>
+    <Category>Methods</Category>
+  </Categories>
+  <SCOPE>All</SCOPE>
+  <VISIBILITY>private</VISIBILITY>
+</Diagram>
+

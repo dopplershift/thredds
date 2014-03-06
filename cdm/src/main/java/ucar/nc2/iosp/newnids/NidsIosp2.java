@@ -14,13 +14,16 @@ import java.io.IOException;
  * Created by rmay on 1/29/14.
  */
 public class NidsIosp2 extends AbstractIOServiceProvider {
+    private NidsProduct[] files;
+
     @Override
     public boolean isValidFile(RandomAccessFile raf) throws IOException {
         return true;
     }
 
     @Override
-    public Array readData(Variable v2, Section section) throws IOException, InvalidRangeException {
+    public Array readData(Variable v2, Section section) throws IOException,
+            InvalidRangeException {
         return null;
     }
 
