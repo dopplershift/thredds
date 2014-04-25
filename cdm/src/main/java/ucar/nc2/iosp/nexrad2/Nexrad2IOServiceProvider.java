@@ -87,7 +87,7 @@ public class Nexrad2IOServiceProvider extends AbstractIOServiceProvider {
     this.raf = volScan.raf;
 
     if (volScan.hasDifferentDopplarResolutions())
-      throw new IllegalStateException("volScan.hasDifferentDopplarResolutions");
+      throw new IllegalStateException("volScan.hasDifferentDopplerResolutions");
 
     if( volScan.hasHighResolutions(0)) {
 
