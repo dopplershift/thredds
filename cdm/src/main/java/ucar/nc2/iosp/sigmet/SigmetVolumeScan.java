@@ -36,7 +36,6 @@ package ucar.nc2.iosp.sigmet;
 
 //~--- non-JDK imports --------------------------------------------------------
 
-import sun.util.resources.CalendarData_nl;
 import ucar.nc2.time.CalendarDate;
 import ucar.unidata.io.RandomAccessFile;
 
@@ -50,29 +49,34 @@ import java.util.*;
  * @since Apr 7, 2010
  */
 public class SigmetVolumeScan {
-    String[] data_name = {
-            " ", "TotalPower", "Reflectivity", "Velocity", "Width",
-            "DifferentialReflectivity"
-    };
-    private List<List<Ray>> differentialReflectivityGroups;
-    private List<List<Ray>> reflectivityGroups;
-    private List<List<Ray>> totalPowerGroups;
-    private List<List<Ray>> velocityGroups;
-    private List<List<Ray>> widthGroups;
-    private List<List<Ray>> timeGroups;
+    private static String[] dataTypeNames = {"Extended Headers", "TotalPower",
+            "Reflectivity", "Velocity", "Width", "DifferentialReflectivity",
+            "CorrectedReflectivity", "TotalPower", "Reflectivity", "Velocity",
+            "Width", "DifferentialReflectivity", "RainfallRate",
+            "SpecificDifferentialPhase", "SpecificDifferentialPhase",
+            "DifferentialPhase", "CorrectedVelocity", "SQI",
+            "CorrelationCoefficient", "CorrelationCoefficient",
+            "CorrectedReflectivity", "CorrectedVelocity", "SQI",
+            "DifferentialPhase", "LinearDepolarizationRatioH",
+            "LinearDepolarizationRatioH", "LinearDepolarizationRatioV",
+            "LinearDepolarizationRatioV"};
+
+    private static String[] dataTypeUnit = {"", "dBZ", "dBZ", "m/sec",
+            "m/sec", "dB", "dBZ", "dBZ", "dBZ", "m/sec", "m/sec", "dB", "mm/hr",
+            "deg/km", "deg/km", "deg", "m/sec", "dimensionless",
+            "dimensionless", "dimensionless", "dBZ", "m/sec", "dimensionless",
+            "deg", "dB", "dB", "dB", "dB"};
+
+    private Map<String, List<List<Ray>>> groups;
+    private Map<Integer, List<Ray>> buffers;
     private int[] num_gates;
     public CalendarDate[] date;
     CalendarDate start_date, end_date;
     public Ray firstRay = null;
     public Ray lastRay = null;
     public ucar.unidata.io.RandomAccessFile raf;
-    public boolean hasReflectivity = false;
-    public boolean hasVelocity = false;
-    public boolean hasWidth = false;
-    public boolean hasTotalPower = false;
-    public boolean hasDifferentialReflectivity = false;
-    public boolean hasTime = false;
 
+    static final int REC_SIZE = 6144;
     private RecordsHeader recHdr;
 
     public class RecordsHeader {
@@ -84,18 +88,20 @@ public class SigmetVolumeScan {
         private int prf, wave;
         public float vNyq, velScale;
 
-        short ground_height, radar_height;
-        float radar_lat, radar_lon;
-        int radar_alt;
+        public short ground_height, radar_height;
+        public float radar_lat, radar_lon;
+        public int radar_alt;
 
-        short num_rays, multiprf, num_bins, num_sweeps;
-        float range_first, range_last;
-        int step;
+        public short num_rays, multiprf, num_bins, num_sweeps;
+        public float range_first, range_last;
+        public int step;
 
-        CalendarDate base_date;
+        public CalendarDate base_date;
 
-        String stnName, stnName_util;
-        List<Integer> params;
+        public String stnName, stnName_util;
+        public List<Integer> paramIds;
+        public List<String> params;
+        public List<String> paramUnits;
 
         public RecordsHeader(ucar.unidata.io.RandomAccessFile raf) {
             try {
@@ -108,7 +114,7 @@ public class SigmetVolumeScan {
                 vNyq = calcNyquist(prf, wave);
 
                 //      -- Read from the 2nd record----------- 6144+12
-                // (strucr_hdr)+168(from ingest_config)
+                // (struct_hdr)+168(from ingest_config)
                 raf.seek(6288);
                 stnName = raf.readString(16);
                 raf.seek(6306);
@@ -130,10 +136,14 @@ public class SigmetVolumeScan {
                 // Determine what moments are available in the file
                 raf.seek(6772);
                 int data_mask = raf.readInt();
+                paramIds = new ArrayList<>();
                 params = new ArrayList<>();
+                paramUnits = new ArrayList<>();
                 for (int param = 0; param < 32; ++param) {
                     if (((data_mask >> param) & 0x1) != 0) {
-                        params.add(param);
+                        paramIds.add(param);
+                        params.add(dataTypeNames[param]);
+                        paramUnits.add(dataTypeUnit[param]);
                     }
                 }
 
@@ -173,17 +183,12 @@ public class SigmetVolumeScan {
      *
      * @param raf    ucar.unidata.io.RandomAccessFile corresponds to SIGMET
      *               datafile.
-     * @param ncfile an empty NetcdfFile object which will be filled.
      */
-    SigmetVolumeScan(ucar.unidata.io.RandomAccessFile raf,
-                     ucar.nc2.NetcdfFile ncfile)
+    SigmetVolumeScan(ucar.unidata.io.RandomAccessFile raf)
             throws java.io.IOException {
-        final int REC_SIZE = 6144;
         int len = 2 * REC_SIZE;    // ---- Read from the 3d record-----------
         short nrec = 0,
-                nsweep = 1,
-                nray = 0,
-                byteoff = 0;
+                nsweep = 1;
         int nwords = 0,
                 end_words = 0,
                 data_read = 0,
@@ -191,33 +196,24 @@ public class SigmetVolumeScan {
                 rays_count = 0,
                 nb = 0,
                 pos = 0,
-                pos_ray_hdr = 0,
-                t = 0;
+                pos_ray_hdr = 0;
         short a0 = 0,
-                a00 = 0,
-                dty = 1;
+                a00 = 0;
         short beg_az = 0,
-                beg_elev = 0,
                 end_az = 0,
                 end_elev = 0,
                 num_bins = 0,
                 time_start_sw = 0;
-        float az = 0.0f,
-                elev = 0.0f,
-                d = 0.0f,
-                step = 0.0f;
+        float az, elev, step;
         //     byte      data          = 0;
         boolean beg_rec = true,
                 end_rec = true,
-                read_ray_hdr = true,
-                begin = true;
-        int cur_len = len,
+                read_ray_hdr = true;
+        int cur_len,
                 beg = 1,
                 kk = 0,
-                col = 0,
                 nu = 0,
-                bt0 = 0,
-                bt1 = 0;
+                dty;
 
         // Input
         this.raf = raf;
@@ -229,7 +225,6 @@ public class SigmetVolumeScan {
 
         int nparams = recHdr.params.size();
         short number_sweeps = recHdr.num_sweeps;
-        short num_rays = recHdr.num_rays;
 
         float range_first = recHdr.range_first;
         float range_last = recHdr.range_last;
@@ -241,19 +236,14 @@ public class SigmetVolumeScan {
         short[] angl_swp = new short[nparams];
         short[] bin_len = new short[nparams];
         short[] data_type = new short[nparams];
-        // float[] dd           = new float[bins];
         num_gates = new int[number_sweeps];
         date = new CalendarDate[nparams * number_sweeps];
         // Array of Ray objects is 2D. Number of columns=number of rays
         // Number of raws = number of types of data if number_sweeps=1,
         // or number of raws = number_sweeps
-        List<Ray> totalPower = new ArrayList<>();
-        List<Ray> velocity = new ArrayList<>();
-        List<Ray> reflectivity = new ArrayList<>();
-        List<Ray> width = new ArrayList<>();
-        List<Ray> diffReflectivity = new ArrayList<>();
+        groups = new HashMap<>();
+        buffers = new HashMap<>();
         List<Ray> time = new ArrayList<>();
-        int irays = (int) num_rays;
         Ray ray = null;
 
         while (len < fileLength) {
@@ -273,10 +263,6 @@ public class SigmetVolumeScan {
                 raf.seek(cur_len);
                 nrec = raf.readShort();    // cur_len
                 nsweep = raf.readShort();    // cur_len+2
-                byteoff = raf.readShort();
-                len = len + 2;            // cur_len+4
-                nray = raf.readShort();
-                len = len + 2;            // cur_len+6
 
                 // ---- end of <raw_prod_bhdr> -------------
                 cur_len = cur_len + 12;
@@ -311,8 +297,6 @@ public class SigmetVolumeScan {
                 end_date = date[nu - 1];
                 cur_len = cur_len + nparams * 76;
             }
-
-            len = cur_len;
 
             if (end_rec) {
 
@@ -364,15 +348,11 @@ public class SigmetVolumeScan {
 
             if (nparams > 1) {
                 kk = rays_count % nparams;
-                col = rays_count / nparams;
                 dty = data_type[kk];
             }
             else if (number_sweeps > 1) {
                 kk = nsweep - 1;
-                col = rays_count % irays;
             }
-
-            String var_name = data_name[dty];
 
             // --- read ray_header (size=12 bytes=6 words)
             // ---------------------------------------
@@ -393,7 +373,6 @@ public class SigmetVolumeScan {
                 }
                 if (pos_ray_hdr < 4) {
                     raf.seek(cur_len);
-                    beg_elev = raf.readShort();
                     cur_len = cur_len + 2;
                     len = cur_len;
 
@@ -478,19 +457,12 @@ public class SigmetVolumeScan {
                 data_read = data_read - pos;
                 pos = 0;
             }
-            //  if(az > 358.5 && az < 358.8 && var_name.contains
-            // ("Reflectivity")) {
-            //      System.out.println(" here ");
-            //  }
             if (data_read > 0) {
                 raf.seek(cur_len);
                 rayoffset = cur_len;
                 datalen = data_read;
 
                 for (int i = 0; i < data_read; i++) {
-                    //  data   = raf.readByte();
-                    //  dd[nb] = SigmetIOServiceProvider.calcData(recHdr,
-                    // dty, data);
                     cur_len++;
                     nb++;
 
@@ -533,7 +505,7 @@ public class SigmetVolumeScan {
                     //  }
                     ray = new Ray(-999.99f, -999.99f, -999.99f, -999.99f,
                             num_bins, (short) (-99), -999, 0, -999,
-                            nsweep, var_name, dty);
+                            nsweep, dty);
                     rays_count++;
                     beg_rec = false;
                     end_rec = true;
@@ -582,11 +554,6 @@ public class SigmetVolumeScan {
                 else if (a00 > 0 & a00 != 1) {
                     num_zero = a00 * 2;
 
-                    // for (int k = 0; k < num_zero; k++) {
-                    //   dd[nb + k] = SigmetIOServiceProvider.calcData
-                    // (recHdr, dty, (byte) 0);
-                    // }
-
                     nb = nb + num_zero;
 
                     if (cur_len % REC_SIZE == 0) {
@@ -617,29 +584,10 @@ public class SigmetVolumeScan {
                 end_rec = true;
                 ray = new Ray(range_first, step, az, elev, num_bins,
                         time_start_sw, rayoffset, datalen, rayoffset1,
-                        nsweep, var_name, dty);
+                        nsweep, dty);
                 rays_count++;
                 if ((nsweep == number_sweeps) & (rays_count % beg == 0)) {
-                    if (var_name.trim().equalsIgnoreCase("TotalPower")) {
-                        totalPower.add(ray);
-                    }
-                    else if (var_name.trim().equalsIgnoreCase("Reflectivity")) {
-                        reflectivity.add(ray);
-                    }
-                    else if (var_name.trim().equalsIgnoreCase("Velocity")) {
-                        velocity.add(ray);
-                    }
-                    else if (var_name.trim().equalsIgnoreCase("Width")) {
-                        width.add(ray);
-                    }
-                    else if (var_name.trim().equalsIgnoreCase
-                            ("DifferentialReflectivity")) {
-                        diffReflectivity.add(ray);
-                    }
-                    else {
-                        System.out.println(" Error: Unknown Radial Variable " +
-                                "found!!");
-                    }
+                    addRay(dty, ray);
                     break;
                 }
 
@@ -651,53 +599,14 @@ public class SigmetVolumeScan {
                     data_read = 0;
                     nb = 0;
                     len = cur_len;
-                    if (var_name.trim().equalsIgnoreCase("TotalPower")) {
-                        totalPower.add(ray);
-                    }
-                    else if (var_name.trim().equalsIgnoreCase("Reflectivity")) {
-                        reflectivity.add(ray);
-                    }
-                    else if (var_name.trim().equalsIgnoreCase("Velocity")) {
-                        velocity.add(ray);
-                    }
-                    else if (var_name.trim().equalsIgnoreCase("Width")) {
-                        width.add(ray);
-                    }
-                    else if (var_name.trim().equalsIgnoreCase
-                            ("DifferentialReflectivity")) {
-                        diffReflectivity.add(ray);
-                    }
-                    else {
-                        System.out.println(" Error: Unknown Radial Variable " +
-                                "found!!");
-                    }
+                    addRay(dty, ray);
                     continue;
                 }
             }
 
-            // "TotalPower", "Reflectivity", "Velocity", "Width",
-            // "DifferentialReflectivity"
             if (firstRay == null) firstRay = ray;
 
-            if (var_name.trim().equalsIgnoreCase("TotalPower")) {
-                totalPower.add(ray);
-            }
-            else if (var_name.trim().equalsIgnoreCase("Reflectivity")) {
-                reflectivity.add(ray);
-            }
-            else if (var_name.trim().equalsIgnoreCase("Velocity")) {
-                velocity.add(ray);
-            }
-            else if (var_name.trim().equalsIgnoreCase("Width")) {
-                width.add(ray);
-            }
-            else if (var_name.trim().equalsIgnoreCase
-                    ("DifferentialReflectivity")) {
-                diffReflectivity.add(ray);
-            }
-            else {
-                System.out.println(" Error: Unknown Radial Variable found!!");
-            }
+            addRay(dty, ray);
 
             pos = 0;
             data_read = 0;
@@ -719,41 +628,26 @@ public class SigmetVolumeScan {
         }    // ------------end of outer while  ---------------
         lastRay = ray;
 
-        if (reflectivity.size() > 0) {
-            reflectivityGroups = sortScans("reflectivity", reflectivity, 1000);
-            hasReflectivity = true;
+        for (Integer dataType : buffers.keySet()) {
+            groups.put(dataTypeNames[dataType],
+                    sortScans(buffers.get(dataType), 1000));
         }
-        if (velocity.size() > 0) {
-            velocityGroups = sortScans("velocity", velocity, 1000);
-            hasVelocity = true;
-        }
-        if (totalPower.size() > 0) {
-            totalPowerGroups = sortScans("totalPower", totalPower, 1000);
-            hasTotalPower = true;
-        }
-        if (width.size() > 0) {
-            widthGroups = sortScans("width", width, 1000);
-            hasWidth = true;
-        }
-        if (diffReflectivity.size() > 0) {
-            differentialReflectivityGroups = sortScans("diffReflectivity",
-                    diffReflectivity, 1000);
-            hasDifferentialReflectivity = true;
-        }
-        if (time.size() > 0) {
-            timeGroups = sortScans("diffReflectivity", diffReflectivity, 1000);
-            hasTime = true;
-        }
+        groups.put("Times", sortScans(time, 1000));
+    }
 
+    private void addRay(int dataType, Ray ray)
+    {
+        if (!buffers.containsKey(dataType))
+            buffers.put(dataType, new ArrayList<Ray>());
+        buffers.get(dataType).add(ray);
+    }
         // --------- fill all of values in the ncfile ------
-    }    // ----------- end of doData -----------------------
+        // ----------- end of doData -----------------------
 
     private int max_radials = 0;
     private int min_radials = Integer.MAX_VALUE;
-    private boolean debugRadials = false;
 
-
-    private List<List<Ray>> sortScans(String name, List<Ray> scans, int siz) {
+    private List<List<Ray>> sortScans(List<Ray> scans, int siz) {
 
         // now group by elevation_num
         Map<Short, List<Ray>> groupHash = new HashMap<>(siz);
@@ -786,24 +680,6 @@ public class SigmetVolumeScan {
             min_radials = Math.min(min_radials, group.size());
         }
 
-        if (debugRadials) {
-            System.out.println(name + " min_radials= " + min_radials + " " +
-                    "max_radials= " + max_radials);
-
-            for (List<Ray> group : groups) {
-                Ray lastr = group.get(0);
-
-                for (int j = 1; j < group.size(); j++) {
-                    Ray r = group.get(j);
-                    if (r.getTime() < lastr.getTime()) {
-                        System.out.println(" out of order " + j);
-                    }
-                    lastr = r;
-                }
-            }
-        }
-
-
         return groups;
     }
 
@@ -819,24 +695,8 @@ public class SigmetVolumeScan {
         }
     }
 
-    public List<List<Ray>> getTotalPowerGroups() {
-        return totalPowerGroups;
-    }
-
-    public List<List<Ray>> getVelocityGroups() {
-        return velocityGroups;
-    }
-
-    public List<List<Ray>> getWidthGroups() {
-        return widthGroups;
-    }
-
-    public List<List<Ray>> getReflectivityGroups() {
-        return reflectivityGroups;
-    }
-
-    public List<List<Ray>> getDifferentialReflectivityGroups() {
-        return differentialReflectivityGroups;
+    public List<List<Ray>> getData(String dataType) {
+        return groups.get(dataType);
     }
 
     public int[] getNumberGates() {

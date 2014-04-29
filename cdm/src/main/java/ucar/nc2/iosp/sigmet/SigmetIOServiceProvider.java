@@ -3,8 +3,6 @@ package ucar.nc2.iosp.sigmet;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.ByteBuffer;
-import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,7 +25,6 @@ import ucar.nc2.constants._Coordinate;
 import ucar.nc2.iosp.AbstractIOServiceProvider;
 import ucar.nc2.iosp.Layout;
 import ucar.nc2.iosp.LayoutRegular;
-import ucar.nc2.time.CalendarDate;
 import ucar.nc2.time.CalendarDateUnit;
 import ucar.nc2.time.CalendarPeriod;
 import ucar.unidata.io.RandomAccessFile;
@@ -85,24 +82,6 @@ public class SigmetIOServiceProvider extends AbstractIOServiceProvider {
 
     private SigmetVolumeScan volScan;
 
-    private static String[] dataTypeNames = {"Extended Headers", "TotalPower",
-            "Reflectivity", "Velocity", "Width", "DifferentialReflectivity",
-            "CorrectedReflectivity", "TotalPower", "Reflectivity", "Velocity",
-            "Width", "DifferentialReflectivity", "RainfallRate",
-            "SpecificDifferentialPhase", "SpecificDifferentialPhase",
-            "DifferentialPhase", "CorrectedVelocity", "SQI",
-            "CorrelationCoefficient", "CorrelationCoefficient",
-            "CorrectedReflectivity", "CorrectedVelocity", "SQI",
-            "DifferentialPhase", "LinearDepolarizationRatioH",
-            "LinearDepolarizationRatioH", "LinearDepolarizationRatioV",
-            "LinearDepolarizationRatioV"};
-
-    private static String[] dataTypeUnit = {"", "dBZ", "dBZ", "m/sec",
-            "m/sec", "dB", "dBZ", "dBZ", "dBZ", "m/sec", "m/sec", "dB", "mm/hr",
-            "deg/km", "deg/km", "deg", "m/sec", "dimensionless",
-            "dimensionless", "dimensionless", "dBZ", "m/sec", "dimensionless",
-            "deg", "dB", "dB", "dB", "dB"};
-
     public static void main(String[] args) {
         String infile = " ";
         if (args.length == 1) {
@@ -141,17 +120,14 @@ public class SigmetIOServiceProvider extends AbstractIOServiceProvider {
         try {
             raf.order(RandomAccessFile.LITTLE_ENDIAN);
             // The first struct in the file is the product_hdr,
-            // which will have the
-            // standard structure_header, followed by other embedded structures.
-            // Each of these structures also have a structure header. To
-            // validate
-            // the file we check for a product_hdr (by looking for type 27 in
-            // the
+            // which will have the standard structure_header,
+            // followed by other embedded structures. Each of these
+            // structures also have a structure header. To validate the file
+            // we check for a product_hdr (by looking for type 27 in the
             // structure_header), then a product_configuration structure (by
-            // looking
-            // for type 26 in its structure_header), then checking that that
-            // the product_configuration does indicate a type of RAW data
-            // (type 15)
+            // looking for type 26 in its structure_header),
+            // then checking that that  the product_configuration does
+            // indicate a type of RAW data (type 15)
             raf.seek(0);
             short[] data = new short[13];
             raf.readShort(data, 0, 13);
@@ -172,20 +148,17 @@ public class SigmetIOServiceProvider extends AbstractIOServiceProvider {
                      ucar.nc2.util.CancelTask cancelTask) throws java.io
             .IOException {
         super.open(raf, ncfile, cancelTask);
-        volScan = new SigmetVolumeScan(raf, ncfile);
-        varList = init(raf, ncfile);
+        volScan = new SigmetVolumeScan(raf);
+        varList = init(ncfile);
     }
 
     /**
      * Define Dimensions, Variables, Attributes in ncfile
      *
-     * @param raf    ucar.unidata.io.RandomAccessFile corresponds of SIGMET
-     *               datafile.
      * @param ncfile an empty NetcdfFile object which will be filled.
      * @return ArrayList of Variables of ncfile
      */
-    public ArrayList<Variable> init(ucar.unidata.io.RandomAccessFile raf,
-                                    ucar.nc2.NetcdfFile ncfile) throws java
+    public ArrayList<Variable> init(ucar.nc2.NetcdfFile ncfile) throws java
             .io.IOException {
         SigmetVolumeScan.RecordsHeader recHdr = volScan.header();
 
@@ -225,15 +198,13 @@ public class SigmetIOServiceProvider extends AbstractIOServiceProvider {
         // Create a variable for each parameter in the file
         int nparams = recHdr.params.size();
         String coordinates = "time elevationR azimuthR distanceR";
-        for (int param: recHdr.params) {
+        for (int p=0; p < nparams; ++p) {
             ++nparams;
-            String var_name = dataTypeNames[param];
-            Variable var = new Variable(ncfile, null, null, var_name);
+            Variable var = new Variable(ncfile, null, null, recHdr.params.get(p));
             var.setDataType(DataType.FLOAT);
             var.setDimensions(dims);
-            var.addAttribute(new Attribute(CDM.LONG_NAME, var_name));
-            var.addAttribute(new Attribute(CDM.UNITS,
-                    dataTypeUnit[param]));
+            var.addAttribute(new Attribute(CDM.LONG_NAME, recHdr.params.get(p)));
+            var.addAttribute(new Attribute(CDM.UNITS, recHdr.paramUnits.get(p)));
             var.addAttribute(new Attribute(_Coordinate.Axes, coordinates));
             var.addAttribute(new Attribute(CDM.MISSING_VALUE, -999.99f));
             ncfile.addVariable(null, var);
@@ -399,13 +370,12 @@ public class SigmetIOServiceProvider extends AbstractIOServiceProvider {
                             (range_first + ii * stp));
                 }
             }
-            List rgp = volScan.getTotalPowerGroups();
-            if (rgp.size() == 0) rgp = volScan.getReflectivityGroups();
+            List rgp = volScan.getData("TotalPower");
+            if (rgp.size() == 0) rgp = volScan.getData("Reflectivity");
             List[] sgp = new ArrayList[number_sweeps];
             for (int i = 0; i < number_sweeps; i++) {
                 sgp[i] = (List) rgp.get((short) i);
             }
-
 
             Variable[] time = new Variable[number_sweeps];
             ArrayInt.D1[] timeArr = new ArrayInt.D1[number_sweeps];
@@ -422,9 +392,6 @@ public class SigmetIOServiceProvider extends AbstractIOServiceProvider {
                     }
                 }
 
-                //                if (time[i].getShape().length == 0) {
-                //                    continue;
-                //                }
                 timeArr[i] = (ArrayInt.D1) Array.factory(DataType.INT,
                         time[i].getShape());
                 timeIndex[i] = timeArr[i].getIndex();
@@ -438,8 +405,6 @@ public class SigmetIOServiceProvider extends AbstractIOServiceProvider {
                             rtemp[jj].getTime());
                 }
             }
-
-            // NCdump.printArray(timeArr[0], "time", System.out, null);
 
             Variable[] azimuthR = new Variable[number_sweeps];
             ArrayFloat.D1[] azimArr = new ArrayFloat.D1[number_sweeps];
@@ -468,7 +433,6 @@ public class SigmetIOServiceProvider extends AbstractIOServiceProvider {
                             rtemp[jj].getAz());
                 }
             }
-            //NCdump.printArray(azimArr[0], "azimuthR", System.out, null);
 
             Variable[] elevationR = new Variable[number_sweeps];
             ArrayFloat.D1[] elevArr = new ArrayFloat.D1[number_sweeps];
@@ -497,7 +461,6 @@ public class SigmetIOServiceProvider extends AbstractIOServiceProvider {
                             rtemp[jj].getElev());
                 }
             }
-            // NCdump.printArray(elevArr[0], "elevationR", System.out, null);
 
             Variable numGates = null;
             for (int i = 0; i < number_sweeps; i++) {
@@ -527,61 +490,12 @@ public class SigmetIOServiceProvider extends AbstractIOServiceProvider {
                 elevationR[i].setCachedData(elevArr[i], false);
             }
             numGates.setCachedData(gatesArr, false);
-            // startSweep.setCachedData(sweepArr, false);
-
-            //          -------------------------------------------------
-            // int b=(int)ray[0][0].getBins();
-
-            // -- Test of readData() and readToByteChannel() -----------------
-      /*
-Range r1=new Range(356, 359);
-Range r2=new Range(0, 15);
-java.util.List arlist=new ArrayList();
-arlist.add(r1);
-arlist.add(r2);
-Array testArr=readData(v[0], new Section(arlist));
-NCdump.printArray(testArr, "Total_Power_sweep_1", System.out, null);
-WritableByteChannel channel=new FileOutputStream(new File("C:\\netcdf\\tt
-.dat")).getChannel();
-long ikk=readToByteChannel(v[0], new Section(arlist), channel);
-System.out.println("IKK="+ikk);
-channel.close();
-      */
-            //---------------------------------------------------
 
         } catch (Exception e) {
             System.out.println(e.toString());
             e.printStackTrace();
         }
     }   //----------- end of doNetcdf ----------------------------------
-
-    /**
-     * Read data from a top level Variable and return a memory resident Array.
-     *
-     * @param v2      Variable. It may have FLOAT/INTEGER data type.
-     * @param section wanted section of data of Variable. The section list is a
-     *                list
-     *                of ucar.ma2.Range which define the requested data subset.
-     * @return Array of data which will be read from Variable through this call.
-     */
-    public Array readData1(ucar.nc2.Variable v2, Section section)
-            throws IOException, InvalidRangeException {
-        //doData(raf, ncfile, varList);
-        int[] sh = section.getShape();
-        Array temp = Array.factory(v2.getDataType(), sh);
-        long pos0 = 0;
-        // Suppose that the data has LayoutRegular
-        LayoutRegular index = new LayoutRegular(pos0, v2.getElementSize(),
-                v2.getShape(), section);
-        if (v2.getShortName().startsWith("time") | v2.getShortName()
-                .startsWith("numGates")) {
-            temp = readIntData(index, v2);
-        }
-        else {
-            temp = readFloatData(index, v2);
-        }
-        return temp;
-    }
 
     public Array readData(Variable v2, Section section) throws IOException,
             InvalidRangeException {
@@ -594,21 +508,7 @@ channel.close();
                 section.getShape());
         IndexIterator ii = data.getIndexIterator();
 
-        List<List<Ray>> groups;
-        String shortName = v2.getShortName();
-        if (shortName.startsWith("Reflectivity"))
-            groups = volScan.getReflectivityGroups();
-        else if (shortName.startsWith("Velocity"))
-            groups = volScan.getVelocityGroups();
-        else if (shortName.startsWith("TotalPower"))
-            groups = volScan.getTotalPowerGroups();
-        else if (shortName.startsWith("Width"))
-            groups = volScan.getWidthGroups();
-        else if (shortName.startsWith("DiffReflectivity"))
-            groups = volScan.getDifferentialReflectivityGroups();
-        else
-            throw new IllegalStateException("Illegal variable name = " +
-                    shortName);
+        List<List<Ray>> groups = volScan.getData(v2.getShortName());
 
         if (section.getRank() == 2) {
             Range radialRange = section.getRange(0);
@@ -627,7 +527,6 @@ channel.close();
         }
         return data;
     }
-
 
     private void readOneScan(List<Ray> mapScan, Range radialRange,
                              Range gateRange, IndexIterator ii) throws
@@ -656,91 +555,6 @@ channel.close();
     }
 
     /**
-     * Read data from a top level Variable of INTEGER data type and return a
-     * memory resident Array.
-     *
-     * @param index LayoutRegular object
-     * @param v2    Variable has INTEGER data type.
-     * @return Array of data which will be read from Variable through this call.
-     */
-    public Array readIntData(LayoutRegular index, Variable v2)
-            throws IOException {
-        int[] var = (int[]) (v2.read().get1DJavaArray(v2.getDataType()
-                .getPrimitiveClassType()));
-        int[] data = new int[(int) index.getTotalNelems()];
-        while (index.hasNext()) {
-            Layout.Chunk chunk = index.next();
-            System.arraycopy(var, (int) chunk.getSrcPos() / 4, data,
-                    (int) chunk.getDestElem(), chunk.getNelems());
-        }
-        return Array.factory(data);
-    }
-
-    /**
-     * Read data from a top level Variable of FLOAT data type and return a
-     * memory resident Array.
-     *
-     * @param index LayoutRegular object
-     * @param v2    Variable has FLOAT data type.
-     * @return Array of data which will be read from Variable through this call.
-     */
-    public Array readFloatData(LayoutRegular index, Variable v2)
-            throws IOException {
-        float[] var = (float[]) (v2.read().get1DJavaArray(v2.getDataType()
-                .getPrimitiveClassType()));
-        float[] data = new float[(int) index.getTotalNelems()];
-        while (index.hasNext()) {
-            Layout.Chunk chunk = index.next();
-            System.arraycopy(var, (int) chunk.getSrcPos() / 4, data,
-                    (int) chunk.getDestElem(), chunk.getNelems());
-        }
-        return Array.factory(data);
-    }
-    //----------------------------------------------------------------------------------
-
-    /**
-     * Read data from a top level Variable and send data to a
-     * WritableByteChannel.
-     *
-     * @param v2      Variable
-     * @param section wanted section of data of Variable. The section list is a
-     *                list
-     *                of ucar.ma2.Range which define the requested data subset.
-     * @param channel WritableByteChannel object - channel that can write bytes.
-     * @return the number of bytes written, possibly zero.
-     */
-    public long readToByteChannel11(ucar.nc2.Variable v2, Section section, WritableByteChannel channel)
-            throws java.io.IOException, ucar.ma2.InvalidRangeException {
-        Array data = readData(v2, section);
-        float[] ftdata = new float[(int) data.getSize()];
-        byte[] bytedata = new byte[(int) data.getSize() * 4];
-        IndexIterator iter = data.getIndexIterator();
-        int i = 0;
-        ByteBuffer buffer = ByteBuffer.allocateDirect(bytedata.length);
-        while (iter.hasNext()) {
-            ftdata[i] = iter.getFloatNext();
-            bytedata[i] = new Float(ftdata[i]).byteValue();
-            buffer.put(bytedata[i]);
-            i++;
-        }
-        buffer = ByteBuffer.wrap(bytedata);
-        // write the bytes to the channel
-        int count = channel.write(buffer);
-        System.out.println("COUNT=" + count);
-        // check if all bytes where written
-        if (buffer.hasRemaining()) {
-            // if not all bytes were written, move the unwritten bytes to the beginning and
-            // set position just after the last unwritten byte
-            buffer.compact();
-        }
-        else {
-            buffer.clear();
-        }
-        return (long) count;
-    }
-
-
-    /**
      * Calculate distance between sequential bins in a ray
      *
      * @param range_first range of first bin in centimeters
@@ -754,32 +568,5 @@ channel.close();
         BigDecimal result = bd.setScale(2, RoundingMode.HALF_DOWN);
         return result.floatValue();
     }
-
-    /**
-     * Calculate time as hh:mm:ss
-     *
-     * @param t  number of seconds since midnight for start of sweep
-     * @param t0 time in seconds from start of sweep
-     * @return time as string "hh:mm:ss"
-     */
-    static String calcTime(int t, int t0) {
-        StringBuilder tim = new StringBuilder();
-        int[] tt = new int[3];
-        int mmh = (t + t0) / 60;
-        tt[2] = (t + t0) % 60;                  // Define SEC
-        tt[0] = mmh / 60;                     // Define HOUR
-        tt[1] = mmh % 60;                     // Define MIN
-        for (int i = 0; i < 3; i++) {
-            String s = Integer.toString(tt[i]);
-            int len = s.length();
-            if (len < 2) {
-                s = "0" + tt[i];
-            }
-            if (i != 2) s += ":";
-            tim.append(s);
-        }
-        return tim.toString();
-    }
-
 
 }

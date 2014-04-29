@@ -56,15 +56,13 @@ public class Ray {
     private float range, step, az, elev;
     private short time;
     //  private float[] val;
-    String varName;
     int nsweep;
-    short datatype;
+    int datatype;
 
 
     public Ray(float range, float step, float az, float elev, short bins,
                short time, int offset, int dataRead,
-               int offset1, int nsweep, String name,
-               short datatype) {
+               int offset1, int nsweep, int datatype) {
 
         //  this.val = new float[bins];
         setRange(range);
@@ -77,17 +75,15 @@ public class Ray {
         setDataRead(dataRead);
         setOffset1(offset1);
         // setVal(val);
-        setName(name);
         setNsweep(nsweep);
         setDataType(datatype);
-
     }
 
-    public short getDataType() {
+    public int getDataType() {
         return datatype;
     }
 
-    public void setDataType(short datatype) {
+    public void setDataType(int datatype) {
         this.datatype = datatype;
     }
 
@@ -183,13 +179,6 @@ public class Ray {
           System.arraycopy(val, 0, this.val, 0, bins);
       }
     */
-    public void setName(String name) {
-        this.varName = name;
-    }
-
-    public String getName() {
-        return varName;
-    }
 
     public boolean equals(Object o) {
         if (this == o) {
@@ -332,7 +321,7 @@ public class Ray {
      * @param velScale scaling value for velocity data
      * @return float value with precision of two decimal
      */
-    static float calcData(short dty, byte data, float velScale) {
+    static float calcData(int dty, byte data, float velScale) {
         double temp = -999.99;
         switch (dty) {
             default:        // dty=1,2 -total_power, reflectivity (dBZ)
