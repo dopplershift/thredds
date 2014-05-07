@@ -637,6 +637,23 @@ public class SigmetVolumeScan {
 
     private void addRay(int dataType, Ray ray)
     {
+        // Convert data type Id to name
+        String datStr = dataTypeNames[dataType];
+
+        // Get list of sweeps for this type or create if necessary
+        List<List<Ray>> data = groups.get(datStr);
+        if (data == null)
+        {
+            data = new ArrayList<>();
+        }
+
+        while (data.size() <= ray.getNsweep())
+            data.add(new ArrayList<Ray>());
+
+        List<Ray> sweep = data[ray.getNsweep()];
+        while (sweep.size() <= ray.getOffset())
+            sweep.add()
+
         if (!buffers.containsKey(dataType))
             buffers.put(dataType, new ArrayList<Ray>());
         buffers.get(dataType).add(ray);
@@ -667,7 +684,6 @@ public class SigmetVolumeScan {
             List<Ray> group = groupHash.get(aShort);
             Ray[] rr = new Ray[group.size()];
             group.toArray(rr);
-            checkSort(rr);
         }
 
         // sort the groups by elevation_num
@@ -706,95 +722,6 @@ public class SigmetVolumeScan {
     public CalendarDate[] getStartSweep() {
         return date;
     }
-
-    /**
-     * Sort Ray objects in the same sweep according to the ascended azimuth
-     * (from 0 to 360)
-     * and time.
-     *
-     * @param r the array of Ray objects in a sweep. Its length=number_rays
-     */
-    void checkSort(Ray[] r) {
-        int j = 0, n = 0, n1 = 0, n2 = 0;
-        short time1 = 0, time2 = 0;
-        int[] k1 = new int[300];
-        int[] k2 = new int[300];
-        //      define the groups of rays with the same "time". For ex.:
-        //      group1 - ray[0]={time=1,az=344}, ray[1]={time=1,az=345},
-        // ... ray[11]={time=1,az=359}
-        //      group2 - ray[12]={time=1,az=0}, ray[13]={time=1,az=1},
-        // ... ray[15]={time=1,az=5}
-        //      k1- array of begin indx (0,12), k2- array of end indx (11,15)
-        for (int i = 0; i < r.length - 1; i++) {
-            time1 = r[i].getTime();
-            time2 = r[i + 1].getTime();
-            if (time1 != time2) {
-                k2[j] = i;
-                j = j + 1;
-                k1[j] = i + 1;
-            }
-        }
-        if (k2[j] < r.length - 1) {
-            k1[j] = k2[j - 1] + 1;
-            k2[j] = r.length - 1;
-            n = j + 1;
-        }
-
-        //      if different groups have the same value of "time" (may be 2
-        // and more groups) -
-        //      it1= indx of "k1" of 1st group, it2= indx of "k2" of last group
-        int it1 = 0, it2 = 0;
-        for (int ii = 0; ii < j + 1; ii++) {
-            n1 = k1[ii];
-            for (int i = 0; i < j + 1; i++) {
-                if (i != ii) {
-                    n2 = k1[i];
-                    if (r[n1].getTime() == r[n2].getTime()) {
-                        it1 = ii;
-                        it2 = i;
-                    }
-                }
-            }
-        }
-
-        n1 = k1[it1];
-        n2 = k1[it2];
-        int s1 = k2[it1] - k1[it1] + 1;
-        int s2 = k2[it2] - k1[it2] + 1;
-        float[] t0 = new float[s1];
-        float[] t00 = new float[s2];
-        for (int i = 0; i < s1; i++) {
-            t0[i] = r[n1 + i].getAz();
-        }
-        for (int i = 0; i < s2; i++) {
-            t00[i] = r[n2 + i].getAz();
-        }
-        float mx0 = t0[0];
-        for (int i = 0; i < s1; i++) {
-            if (mx0 < t0[i]) mx0 = t0[i];
-        }
-        float mx00 = t00[0];
-        for (int i = 0; i < s2; i++) {
-            if (mx00 < t00[i]) mx00 = t00[i];
-        }
-        if ((mx0 > 330.0f & mx00 < 50.0f)) {
-            for (int i = 0; i < s1; i++) {
-                float q = r[n1 + i].getAz();
-                r[n1 + i].setAz(q - 360.0f);
-            }
-        }
-        Arrays.sort(r, new RayComparator());
-        for (int i = 0; i < r.length; i++) {
-            float a = r[i].getAz();
-            if (a < 0 & a > -361.0f) {
-                float qa = r[i].getAz();
-                r[i].setAz(qa + 360.0f);
-            }
-        }
-
-    }
-
-    //  -----------------------------------------------------------------------
 
     /**
      * Read a date/time struct from a SIGMET file
@@ -891,28 +818,4 @@ public class SigmetVolumeScan {
         BigDecimal result = bd.setScale(2, RoundingMode.HALF_DOWN);
         return result.floatValue();
     }
-
-    class RayComparator implements Comparator<Ray> {
-        public int compare(Ray ray1, Ray ray2) {
-            if (ray1.getTime() < ray2.getTime()) {
-                return -1;
-            }
-            else if (ray1.getTime() == ray2.getTime()) {
-                if (ray1.getAz() < ray2.getAz()) {
-                    return -1;
-                }
-                if (ray1.getAz() > ray2.getAz()) {
-                    return 1;
-                }
-                if (ray1.getAz() == ray2.getAz()) {
-                    return 0;
-                }
-            }
-            else if (ray1.getTime() > ray2.getTime()) {
-                return 1;
-            }
-            return 0;
-        }
-    } // class RayComparator end ----------------------------------
-
 }
