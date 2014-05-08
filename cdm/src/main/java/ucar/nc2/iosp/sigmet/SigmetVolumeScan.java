@@ -120,8 +120,7 @@ public class SigmetVolumeScan {
                 raf.seek(6306);
                 stnName_util = raf.readString(16);
 
-                raf.skipBytes(4);
-//                raf.seek(6324);
+                raf.skipBytes(2);
                 radar_lat = calcAngle(raf.readInt());
                 radar_lon = calcAngle(raf.readInt()); // 6328
                 ground_height = raf.readShort(); // 6332
@@ -205,7 +204,6 @@ public class SigmetVolumeScan {
                 num_bins = 0,
                 time_start_sw = 0;
         float az, elev, step;
-        //     byte      data          = 0;
         boolean beg_rec = true,
                 end_rec = true,
                 read_ray_hdr = true;
@@ -503,9 +501,7 @@ public class SigmetVolumeScan {
                     // for (int uk = 0; uk < (int) num_bins; uk++) {
                     //  dd[uk] = -999.99f;
                     //  }
-                    ray = new Ray(-999.99f, -999.99f, -999.99f, -999.99f,
-                            num_bins, (short) (-99), -999, 0, -999,
-                            nsweep, dty);
+                    ray = new Ray(num_bins, nsweep, dty);
                     rays_count++;
                     beg_rec = false;
                     end_rec = true;
@@ -628,11 +624,7 @@ public class SigmetVolumeScan {
         }    // ------------end of outer while  ---------------
         lastRay = ray;
 
-        for (Integer dataType : buffers.keySet()) {
-            groups.put(dataTypeNames[dataType],
-                    sortScans(buffers.get(dataType), 1000));
-        }
-        groups.put("Times", sortScans(time, 1000));
+//        groups.put("Times", sortScans(time, 1000));
     }
 
     private void addRay(int dataType, Ray ray)
@@ -644,71 +636,20 @@ public class SigmetVolumeScan {
         List<List<Ray>> data = groups.get(datStr);
         if (data == null)
         {
-            data = new ArrayList<>();
+            data = new ArrayList<>(this.recHdr.num_sweeps);
         }
 
         while (data.size() <= ray.getNsweep())
-            data.add(new ArrayList<Ray>());
+            data.add(new ArrayList<Ray>(this.recHdr.num_rays));
 
-        List<Ray> sweep = data[ray.getNsweep()];
-        while (sweep.size() <= ray.getOffset())
-            sweep.add()
+        List<Ray> sweep = data.get(ray.getNsweep());
+        // TODO: Need to handle missing rays by actually getting ray index
+        // from file.
+//        while (sweep.size() <= ray.getOffset())
+//            sweep.add(new Ray(ray.getBins(), ray.getNsweep(),
+//                    ray.getDataType()));
 
-        if (!buffers.containsKey(dataType))
-            buffers.put(dataType, new ArrayList<Ray>());
-        buffers.get(dataType).add(ray);
-    }
-        // --------- fill all of values in the ncfile ------
-        // ----------- end of doData -----------------------
-
-    private int max_radials = 0;
-    private int min_radials = Integer.MAX_VALUE;
-
-    private List<List<Ray>> sortScans(List<Ray> scans, int siz) {
-
-        // now group by elevation_num
-        Map<Short, List<Ray>> groupHash = new HashMap<>(siz);
-
-        for (Ray ray : scans) {
-            List<Ray> group = groupHash.get((short) ray.nsweep);
-
-            if (null == group) {
-                group = new ArrayList<>();
-                groupHash.put((short) ray.nsweep, group);
-            }
-
-            group.add(ray);
-        }
-
-        for (Short aShort : groupHash.keySet()) {
-            List<Ray> group = groupHash.get(aShort);
-            Ray[] rr = new Ray[group.size()];
-            group.toArray(rr);
-        }
-
-        // sort the groups by elevation_num
-        List<List<Ray>> groups = new ArrayList<>(groupHash.values());
-        Collections.sort(groups, new GroupComparator());
-
-        // use the maximum radials
-        for (List<Ray> group : groups) {
-            max_radials = Math.max(max_radials, group.size());
-            min_radials = Math.min(min_radials, group.size());
-        }
-
-        return groups;
-    }
-
-    private class GroupComparator implements Comparator<List<Ray>> {
-        public int compare(List<Ray> group1, List<Ray> group2) {
-            Ray record1 = group1.get(0);
-            Ray record2 = group2.get(0);
-
-            // if (record1.elevation_num != record2.elevation_num)
-            return record1.nsweep - record2.nsweep;
-
-            // return record1.cut - record2.cut;
-        }
+        sweep.add(ray);
     }
 
     public List<List<Ray>> getData(String dataType) {

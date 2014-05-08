@@ -59,6 +59,10 @@ public class Ray {
     int nsweep;
     int datatype;
 
+    public Ray(short bins, int nsweep, int datatype) {
+        this(-999.99f, -999.99f, -999.99f, -999.99f, bins, (short) (-99),
+                -999, 0, -999, nsweep, datatype);
+    }
 
     public Ray(float range, float step, float az, float elev, short bins,
                short time, int offset, int dataRead,

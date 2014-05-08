@@ -199,7 +199,6 @@ public class SigmetIOServiceProvider extends AbstractIOServiceProvider {
         int nparams = recHdr.params.size();
         String coordinates = "time elevationR azimuthR distanceR";
         for (int p=0; p < nparams; ++p) {
-            ++nparams;
             Variable var = new Variable(ncfile, null, null, recHdr.params.get(p));
             var.setDataType(DataType.FLOAT);
             var.setDimensions(dims);
@@ -317,7 +316,7 @@ public class SigmetIOServiceProvider extends AbstractIOServiceProvider {
                 _Coordinate.Convention));
 
         // --------- fill all of values in the ncfile ------
-        doNetcdfFileCoordinate(ncfile, varList, recHdr);
+//        doNetcdfFileCoordinate(ncfile, varList, recHdr);
 
         ncfile.finish();
 
