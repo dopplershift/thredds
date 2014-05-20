@@ -208,6 +208,7 @@ public class SigmetIOServiceProvider extends AbstractIOServiceProvider {
             var.addAttribute(new Attribute(CDM.MISSING_VALUE, -999.99f));
             ncfile.addVariable(null, var);
             varList.add(var);
+            var.setSPobject(volScan.getData(recHdr.params.get(p)));
         }
 
         CalendarDateUnit time_unit = CalendarDateUnit.of(
