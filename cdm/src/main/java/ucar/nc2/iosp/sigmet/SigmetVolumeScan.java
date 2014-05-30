@@ -68,7 +68,7 @@ public class SigmetVolumeScan {
             "deg", "dB", "dB", "dB", "dB"};
 
     private Map<String, List<List<Ray>>> groups;
-    private Map<Integer, List<Ray>> buffers;
+    public List<List<Float>> azimuth, elevation;
     private int[] num_gates;
     public CalendarDate[] date;
     CalendarDate start_date, end_date;
@@ -240,7 +240,8 @@ public class SigmetVolumeScan {
         // Number of raws = number of types of data if number_sweeps=1,
         // or number of raws = number_sweeps
         groups = new HashMap<>();
-        buffers = new HashMap<>();
+        azimuth = new ArrayList<>();
+        elevation = new ArrayList<>();
         List<Ray> time = new ArrayList<>();
         Ray ray = null;
 
@@ -440,6 +441,13 @@ public class SigmetVolumeScan {
             // ----------------------------------------------
             az = calcAz(beg_az, end_az);
             elev = calcAngle(end_elev);
+            while (azimuth.size() < nsweep)
+            {
+                azimuth.add(new ArrayList<Float>());
+                elevation.add(new ArrayList<Float>());
+            }
+            azimuth.get(nsweep - 1).add(az);
+            elevation.get(nsweep - 1).add(elev);
             step = SigmetIOServiceProvider.calcStep(range_first, range_last,
                     num_bins);
 

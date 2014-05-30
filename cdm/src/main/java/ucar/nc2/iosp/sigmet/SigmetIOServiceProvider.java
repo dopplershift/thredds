@@ -242,6 +242,7 @@ public class SigmetIOServiceProvider extends AbstractIOServiceProvider {
         elevationR.addAttribute(new Attribute(_Coordinate.AxisType,
                 AxisType.RadialElevation.toString()));
         elevationR.addAttribute(new Attribute(CDM.MISSING_VALUE, -999.99f));
+        elevationR.setSPobject(volScan.elevation);
         ncfile.addVariable(null, elevationR);
         varList.add(elevationR);
 
@@ -254,6 +255,7 @@ public class SigmetIOServiceProvider extends AbstractIOServiceProvider {
         azimuthR.addAttribute(new Attribute(_Coordinate.AxisType,
                 AxisType.RadialAzimuth.toString()));
         azimuthR.addAttribute(new Attribute(CDM.MISSING_VALUE, -999.99f));
+        azimuthR.setSPobject(volScan.azimuth);
         ncfile.addVariable(null, azimuthR);
         varList.add(azimuthR);
 
@@ -506,15 +508,26 @@ public class SigmetIOServiceProvider extends AbstractIOServiceProvider {
 
         Array data = Array.factory(v2.getDataType().getPrimitiveClassType(),
                 section.getShape());
-        IndexIterator ii = data.getIndexIterator();
+        IndexIterator dii = data.getIndexIterator();
 
         List<List<Ray>> groups = volScan.getData(v2.getShortName());
 
         if (section.getRank() == 2) {
-            Range radialRange = section.getRange(0);
-            Range gateRange = section.getRange(1);
-            List<Ray> lli = groups.get(0);
-            readOneScan(lli, radialRange, gateRange, ii);
+            Range outerRange = section.getRange(0);
+            Range innerRange = section.getRange(1);
+            List<List<Float>> sourceData = (List<List<Float>>) v2.getSPobject();
+            for(Range.Iterator oi = outerRange.getIterator(); oi.hasNext(); )
+            {
+                List<Float> rayData = sourceData.get(oi.next());
+                for(Range.Iterator ii = innerRange.getIterator(); ii.hasNext();)
+                {
+                    int iInd = ii.next();
+                    if (rayData == null || iInd >= rayData.size())
+                        dii.setFloatNext(Float.NaN);
+                    else
+                        dii.setFloatNext(rayData.get(iInd));
+                }
+            }
         }
         else {
             Range scanRange = section.getRange(0);
@@ -522,7 +535,7 @@ public class SigmetIOServiceProvider extends AbstractIOServiceProvider {
             Range gateRange = section.getRange(2);
             for (int i = scanRange.first(); i <= scanRange.last(); i +=
                     scanRange.stride()) {
-                readOneScan(groups.get(i), radialRange, gateRange, ii);
+                readOneScan(groups.get(i), radialRange, gateRange, dii);
             }
         }
         return data;
