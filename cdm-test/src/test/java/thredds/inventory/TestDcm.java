@@ -81,7 +81,6 @@ public class TestDcm {
   }
 
   @Test
-  @Ignore("tests fail on jenkins due to file permisssions")
   public void testScanOlderThan() throws IOException, InterruptedException {
     Formatter f = new Formatter(System.out);
     CollectionManager dcm = MFileCollectionManager.open("testScanOlderThan", TestDir.cdmUnitTestDir + "agg/updating/.*nc$", null, f);
@@ -98,7 +97,6 @@ public class TestDcm {
   }
 
   @Test
-  @Ignore("tests fail on jenkins due to file permisssions")
   public void testScanFromConfig() throws IOException {
     //public FeatureCollectionConfig(String name, FeatureCollectionType fcType, String spec, String dateFormatMark, String olderThan, String recheckAfter,
     //                               String timePartition, String useIndexOnlyS, Element innerNcml) {
@@ -121,7 +119,6 @@ public class TestDcm {
   }
 
   @Test
-  @Ignore("tests fail on jenkins due to file permisssions")
   public void testOlderThanInDirectoryCollection() throws IOException {
     //   public FeatureCollectionConfig(String name, String path, FeatureCollectionType fcType, String spec,
    //                                  String dateFormatMark, String olderThan,
