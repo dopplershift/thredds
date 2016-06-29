@@ -61,6 +61,11 @@ dependencies {
     compile libraries["edal-wms"]
     compile libraries["edal-godiva"]
 
+    // Need to talk to Jupyter
+    compile libraries["zmq"]
+    compile libraries["jsonp"]
+    compile libraries["json"]
+
     runtime libraries["saxon-he"]
 
     // JSR 303 with Hibernate Validator, which is dragging in jboss logging

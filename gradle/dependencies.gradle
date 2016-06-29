@@ -248,6 +248,11 @@ libraries["hibernate-validator"] = "org.hibernate:hibernate-validator:4.3.2.Fina
 
 libraries["validation-api"] = "javax.validation:validation-api:1.0.0.GA"
 
+//////////////////////////// Jupyter ///////////////////////////////////////////
+libraries["zmq"] = "org.zeromq:jeromq:0.3.5"
+libraries["jsonp"] = "javax.json:javax.json-api:1.0"
+libraries["json"] = "org.glassfish:javax.json:1.0.4"
+
 ////////////////////////////////////////// ToolsUI //////////////////////////////////////////
 
 libraries["bounce"] = "org.bounce:bounce:0.14"
