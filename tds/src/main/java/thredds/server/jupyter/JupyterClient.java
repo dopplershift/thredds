@@ -2,7 +2,6 @@ package thredds.server.jupyter;
 
 import java.io.*;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.UUID;
 
 import javax.json.Json;
@@ -86,6 +85,7 @@ public class JupyterClient {
 
         ZContext ctx;
         JupyterSocket cmdSocket, shellSocket, resultSocket;
+        Process kernel;
 
         final int controlPort = 5000;
 
@@ -96,7 +96,17 @@ public class JupyterClient {
             session = UUID.randomUUID().toString();
         }
 
-        public void connect() {
+        public void connect() throws IOException {
+            ProcessBuilder builder = new ProcessBuilder("/Users/rmay/miniconda3/envs/py35/bin/python",
+                    "-m", "ipykernel", "--no-secure", "--control", String.valueOf(controlPort));
+            builder.redirectErrorStream(true);
+            kernel = builder.start();
+
+            InputStream inp = kernel.getInputStream();
+            byte [] out = new byte[4096];
+            int bytesRead = inp.read(out);
+            System.out.println(new String(out, 0, bytesRead, CDM.utf8Charset));
+
             JupyterMessage control = new JupyterMessage(connection.session, "rmay",
                     JupyterMessage.MessageType.connect_request);
             JupyterMessage result = cmdSocket.sendMessage(control);
@@ -130,9 +140,10 @@ public class JupyterClient {
             while ((msg = resultSocket.receiveMessage()) != null) {
                 if (msg.type == JupyterMessage.MessageType.execute_result) {
                     return msg.content.getJsonObject("data").getString("text/plain");
-                } else if (msg.type == JupyterMessage.MessageType.stream) {
-                    return msg.content.getString("text");
                 }
+//                } else if (msg.type == JupyterMessage.MessageType.stream) {
+//                    return msg.content.getString("text");
+//                }
             }
             return "";
         }
@@ -144,34 +155,47 @@ public class JupyterClient {
                 shellSocket.close();
             cmdSocket.close();
             ctx.close();
+            try {
+                kernel.getOutputStream().write(0x5c);
+            } catch (IOException e) {
+                // We're leaving, so just ignore
+                System.out.println("Error sending quit to kernel.");
+            }
+            kernel.destroy();
         }
     }
 
     JupyterConnection connection;
 
-    String connect(Path configPath) throws IOException {
+    boolean connect(Path configPath, String method) throws IOException {
         connection = new JupyterConnection();
         connection.connect();
 
-        File codeFile = configPath.resolve("jupyter/test.py").toFile();
+        File codeFile = configPath.resolve("jupyter/" + method + ".py").toFile();
+        if (codeFile == null) {
+            throw new RuntimeException("Unknown method " + method);
+        }
         FileInputStream fis = new FileInputStream(codeFile);
         byte[] codeBuff = new byte[(int) codeFile.length()];
         fis.read(codeBuff);
         if (connection.execute(new String(codeBuff, CDM.UTF8))) {
-            String result = connection.getResult();
-            return "Success! " + result;
+            return true;
         } else {
-            return "Error executing code.";
+            throw new RuntimeException("Error initializing Python code.");
+        }
+    }
+
+    String processFile(String filePath) {
+        String code = "entrypoint('" + filePath + "')";
+        if (connection.execute(code)) {
+            String result = connection.getResult();
+            return result.substring(1, result.length() - 1);
+        } else {
+            throw new RuntimeException("Error processing file with Python.");
         }
     }
 
     public void close() {
         connection.close();
     }
-//        ProcessBuilder builder = new ProcessBuilder("/Users/rmay/miniconda3/envs/py35/bin/python",
-//                "-m", "ipykernel", "--control", String.valueOf(controlPort));
-//        builder.redirectErrorStream(true);
-//        Process process = builder.start();
-//
-//        InputStream inp = process.getInputStream();
 }

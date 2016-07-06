@@ -6,8 +6,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import thredds.core.TdsRequestedDataset;
 import thredds.server.config.TdsContext;
+import thredds.util.TdsPathUtils;
 
+import javax.servlet.http.HttpServletRequest;
 import java.io.*;
 
 @Controller
@@ -25,16 +28,34 @@ public class JupyterKernelController {
         return sw.toString();
     }
 
-    @RequestMapping(value="test.txt")
+    @RequestMapping(value="**")
     @ResponseBody
-    public HttpEntity<String> simpleMethod() throws IOException {
+    public HttpEntity<byte[]> dataRequest(@RequestParam(value="method", required=false) String method,
+                                          final HttpServletRequest req) throws IOException {
+
+        if (method == null) {
+            method = "demo";
+        }
 
         JupyterClient client = new JupyterClient();
-        String out = client.connect(tdsContext.getThreddsDirectory().toPath());
+        String datasetPath = TdsPathUtils.extractPath(req, "/jupyter");
+        String dataFile = TdsRequestedDataset.getFile(datasetPath).toString();
+        byte [] out = new byte[16];
+        if (client.connect(tdsContext.getThreddsDirectory().toPath(), method)) {
+            String outputFileName = client.processFile(dataFile);
+            File outputFile = new File(outputFileName);
+            FileInputStream fis = new FileInputStream(outputFile);
+            out = new byte[(int) outputFile.length()];
+            fis.read(out);
+            fis.close();
+            outputFile.delete();
+        }
         client.close();
 
         HttpHeaders header = new HttpHeaders();
-        header.setContentType(new MediaType("text", "html"));
+        header.setContentType(new MediaType("application", "x-netcdf"));
+        header.setContentLength(out.length);
+        header.setContentDispositionFormData("attachment", method + ".nc4");
         return new HttpEntity<>(out, header);
     }
 }
