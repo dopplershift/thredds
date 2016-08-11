@@ -28,6 +28,7 @@ bin/
 .gradle/
 # Ignore the output that Gradle generates in the "build/" directories...
 build/
+out/
 # ...but not the source code in the "edu.ucar.build" package.
 !**/src/**/edu/ucar/build/
 
