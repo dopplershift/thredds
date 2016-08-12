@@ -1,7 +1,13 @@
 package thredds.server.jupyter;
 
+import org.apache.commons.codec.binary.Hex;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import javax.json.Json;
 import javax.json.JsonObject;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -60,5 +66,36 @@ class JupyterMessage {
         ret.dateTime = LocalDateTime.parse(json.getString("date"));
         ret.version = json.getString("version");
         return ret;
+    }
+
+    public String digest(byte[] key) {
+        try {
+            final Mac sha256_mac = Mac.getInstance("HmacSHA256");
+            final SecretKeySpec secret_key = new SecretKeySpec(key, "HmacSHA256");
+            sha256_mac.init(secret_key);
+            sha256_mac.update(toJson().toString().getBytes());
+
+            if (parent != null) {
+                sha256_mac.update(parent.toJson().toString().getBytes());
+            } else {
+                sha256_mac.update("{}".getBytes());
+            }
+
+            if (metadata != null) {
+                sha256_mac.update(metadata.toString().getBytes());
+            } else {
+                sha256_mac.update("{}".getBytes());
+            }
+
+            if (content != null) {
+                sha256_mac.update(content.toString().getBytes());
+            } else {
+                sha256_mac.update("{}".getBytes());
+            }
+            return Hex.encodeHexString(sha256_mac.doFinal());
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+            e.printStackTrace();
+            return "";
+        }
     }
 }

@@ -57,7 +57,7 @@ public class JupyterClient {
 
         JupyterMessage sendMessage(JupyterMessage msg) {
             socket.sendMore(DELIM);
-            socket.sendMore("");
+            socket.sendMore(msg.digest(connection.key.getBytes()));
             sendJson(msg);
             sendJson(msg.parent);
             sendJson(msg.metadata);
@@ -78,6 +78,16 @@ public class JupyterClient {
             resp.addParent(JupyterMessage.fromJson(readSocketJson()));
             resp.addMetadata(readSocketJson());
             resp.addContent(readSocketJson());
+            // TODO: Need to do the signature checking with the actual bytes
+            // that were sent (since our JSON processing could change the order--
+            // it doesn't round-trip). This will necessitate a refactor so that the
+            // JupyterMessage is much more self-contained.
+//            if (signature.equals(resp.digest(connection.key.getBytes()))) {
+//                return resp;
+//            } else {
+//                System.err.println("Jupyter message failed signature check.");
+//                return null;
+//            }
             return resp;
         }
     }
@@ -88,6 +98,7 @@ public class JupyterClient {
         ZContext ctx;
         JupyterSocket cmdSocket, shellSocket, resultSocket;
         Process kernel;
+        String key = UUID.randomUUID().toString();
 
         final int controlPort = 5000;
 
