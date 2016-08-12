@@ -7,6 +7,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import thredds.core.TdsRequestedDataset;
+import thredds.server.config.JupyterConfigBean;
 import thredds.server.config.TdsContext;
 import thredds.util.TdsPathUtils;
 
@@ -19,6 +20,9 @@ public class JupyterKernelController {
 
     @Autowired
     TdsContext tdsContext;
+
+    @Autowired
+    JupyterConfigBean jupyterConfig;
 
     @ExceptionHandler(Exception.class)
     @ResponseBody
@@ -37,7 +41,8 @@ public class JupyterKernelController {
             method = "demo";
         }
 
-        JupyterClient client = new JupyterClient();
+        JupyterClient client = new JupyterClient(jupyterConfig.getPythonPath(),
+                jupyterConfig.getTimeout());
         String datasetPath = TdsPathUtils.extractPath(req, "/jupyter");
         String dataFile = TdsRequestedDataset.getFile(datasetPath).toString();
         byte [] out = new byte[16];

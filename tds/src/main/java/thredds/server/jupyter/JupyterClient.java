@@ -20,6 +20,8 @@ public class JupyterClient {
         JupyterSocket(ZMQ.Socket socket, String URI) {
             this.socket = socket;
             socket.connect(URI);
+            socket.setReceiveTimeOut(timeout);
+            socket.setSendTimeOut(timeout);
         }
 
         void close() {
@@ -97,8 +99,8 @@ public class JupyterClient {
         }
 
         public void connect() throws IOException {
-            ProcessBuilder builder = new ProcessBuilder("/Users/rmay/miniconda3/envs/py35/bin/python",
-                    "-m", "ipykernel", "--no-secure", "--control", String.valueOf(controlPort));
+            ProcessBuilder builder = new ProcessBuilder(pythonPath.toString(),
+                    "-m", "ipykernel", "--Session.key=b'" + key + "'", "--control", String.valueOf(controlPort));
             builder.redirectErrorStream(true);
             kernel = builder.start();
 
@@ -166,6 +168,13 @@ public class JupyterClient {
     }
 
     JupyterConnection connection;
+    Path pythonPath;
+    int timeout;
+
+    public JupyterClient(Path pythonPath, int timeout) {
+        this.pythonPath = pythonPath;
+        this.timeout = timeout;
+    }
 
     boolean connect(Path configPath, String method) throws IOException {
         connection = new JupyterConnection();
