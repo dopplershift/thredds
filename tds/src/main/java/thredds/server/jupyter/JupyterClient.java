@@ -115,26 +115,30 @@ public class JupyterClient {
             builder.redirectErrorStream(true);
             kernel = builder.start();
 
-            InputStream inp = kernel.getInputStream();
-            byte [] out = new byte[4096];
-            int bytesRead = inp.read(out);
-            System.out.println(new String(out, 0, bytesRead, CDM.utf8Charset));
+            if (kernel.isAlive()) {
+                InputStream inp = kernel.getInputStream();
+                byte[] out = new byte[4096];
+                int bytesRead = inp.read(out);
+                System.out.println(new String(out, 0, bytesRead, CDM.utf8Charset));
 
-            JupyterMessage control = new JupyterMessage(connection.session, "rmay",
-                    JupyterMessage.MessageType.connect_request);
-            JupyterMessage result = cmdSocket.sendMessage(control);
-            shellSocket = new JupyterSocket(ctx.createSocket(ZMQ.DEALER),
-                    "tcp://localhost:" + String.valueOf(result.content.getInt("shell")));
+                JupyterMessage control = new JupyterMessage(connection.session, "thredds",
+                        JupyterMessage.MessageType.connect_request);
+                JupyterMessage result = cmdSocket.sendMessage(control);
+                shellSocket = new JupyterSocket(ctx.createSocket(ZMQ.DEALER),
+                        "tcp://localhost:" + String.valueOf(result.content.getInt("shell")));
 
-            // Must subscribe to a topic (even an empty one) to get messages
-            ZMQ.Socket subSocket = ctx.createSocket(ZMQ.SUB);
-            subSocket.subscribe("".getBytes());
-            resultSocket = new JupyterSocket(subSocket,
-                    "tcp://localhost:" + String.valueOf(result.content.getInt("iopub")));
+                // Must subscribe to a topic (even an empty one) to get messages
+                ZMQ.Socket subSocket = ctx.createSocket(ZMQ.SUB);
+                subSocket.subscribe("".getBytes());
+                resultSocket = new JupyterSocket(subSocket,
+                        "tcp://localhost:" + String.valueOf(result.content.getInt("iopub")));
+            } else {
+                throw new RuntimeException("Error starting: " + pythonPath.toString());
+            }
         }
 
         public boolean execute(String code) {
-            JupyterMessage exec = new JupyterMessage(connection.session, "rmay",
+            JupyterMessage exec = new JupyterMessage(connection.session, "thredds",
                     JupyterMessage.MessageType.execute_request);
             exec.content = Json.createObjectBuilder()
                     .add("code", code)
