@@ -221,9 +221,23 @@ public class JupyterClient {
         }
     }
 
-    String processFile(String filePath) {
-        String code = "entrypoint('" + filePath + "')";
-        if (connection.execute(code)) {
+    String processFile(String filePath, Map<String, String[]> parameters) {
+        StringBuilder code = new StringBuilder("entrypoint('").append(filePath).append("'");
+        for (Map.Entry<String, String[]> entry: parameters.entrySet()) {
+            code.append(", ").append(entry.getKey()).append('=');
+            String[] vals = entry.getValue();
+            if (vals.length == 1) {
+                code.append("'").append(vals[0]).append("'");
+            } else {
+                StringJoiner joiner = new StringJoiner("','", "['", "']");
+                for (String item: vals) {
+                    joiner.add(item);
+                }
+                code.append(joiner.toString());
+            }
+        }
+        code.append(")");
+        if (connection.execute(code.toString())) {
             String result = connection.getResult();
             return result.substring(1, result.length() - 1);
         } else {
