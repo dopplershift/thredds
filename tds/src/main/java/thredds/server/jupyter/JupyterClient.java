@@ -2,7 +2,7 @@ package thredds.server.jupyter;
 
 import java.io.*;
 import java.nio.file.Path;
-import java.util.UUID;
+import java.util.*;
 
 import javax.json.Json;
 import javax.json.JsonObject;
@@ -189,6 +189,18 @@ public class JupyterClient {
     public JupyterClient(Path pythonPath, int timeout) {
         this.pythonPath = pythonPath;
         this.timeout = timeout;
+    }
+
+    static public List<String> methods(Path configPath) throws IOException {
+        File scriptDir = configPath.resolve("jupyter/").toFile();
+        List<String> ret = new ArrayList<>();
+        FilenameFilter filter = (dir, name) -> name.endsWith(".py");
+
+        for (File f: scriptDir.listFiles(filter)) {
+            String methodName = f.getName();
+            ret.add(methodName.substring(0, methodName.length() - 3));
+        }
+        return ret;
     }
 
     boolean connect(Path configPath, String method) throws IOException {

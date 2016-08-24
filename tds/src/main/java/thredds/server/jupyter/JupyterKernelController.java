@@ -13,6 +13,8 @@ import thredds.util.TdsPathUtils;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.*;
+import java.util.List;
+import java.util.StringJoiner;
 
 @Controller
 @RequestMapping("/jupyter")
@@ -38,7 +40,7 @@ public class JupyterKernelController {
                                           final HttpServletRequest req) throws IOException {
 
         if (method == null) {
-            method = "demo";
+            return capabilitiesRequest();
         }
 
         JupyterClient client = new JupyterClient(jupyterConfig.getPythonPath(),
@@ -47,7 +49,9 @@ public class JupyterKernelController {
         String dataFile = TdsRequestedDataset.getFile(datasetPath).toString();
         byte [] out = new byte[16];
         if (client.connect(tdsContext.getThreddsDirectory().toPath(), method)) {
-            String outputFileName = client.processFile(dataFile);
+            Map<String, String[]> params = new HashMap<>(req.getParameterMap());
+            params.remove("method");
+            String outputFileName = client.processFile(dataFile, params);
             File outputFile = new File(outputFileName);
             FileInputStream fis = new FileInputStream(outputFile);
             out = new byte[(int) outputFile.length()];
@@ -62,5 +66,16 @@ public class JupyterKernelController {
         header.setContentLength(out.length);
         header.setContentDispositionFormData("attachment", method + ".nc4");
         return new HttpEntity<>(out, header);
+    }
+
+    @RequestMapping(value="capabilities")
+    @ResponseBody
+    public HttpEntity<byte[]> capabilitiesRequest() throws IOException {
+        List<String> methods = JupyterClient.methods(tdsContext.getThreddsDirectory().toPath());
+        StringJoiner builder = new StringJoiner("\n");
+        methods.forEach(builder::add);
+        HttpHeaders header = new HttpHeaders();
+        header.setContentType(new MediaType("text", "plain"));
+        return new HttpEntity<>(builder.toString().getBytes(), header);
     }
 }
